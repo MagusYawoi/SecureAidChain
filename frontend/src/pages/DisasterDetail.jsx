@@ -123,7 +123,7 @@ export default function DisasterDetail() {
 
   const handleGenerateQR = async () => {
     try {
-      const { data } = await generateQR({ disasterId: id, walletAddress: walletAddr, type: "beneficiary" });
+      const { data } = await generateQR({ disasterId: id, walletAddress: walletAddr || user?.walletAddress || "N/A", type: "beneficiary" });
       setQrCode(data.qrDataUrl);
     } catch { toast.error("Failed to generate QR"); }
   };

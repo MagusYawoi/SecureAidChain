@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: {
       type: String,
-      enum: ["donor", "beneficiary", "ngo", "admin"],
+      enum: ["donor", "beneficiary", "ngo", "admin", "government", "agency"],
       default: "donor",
     },
     walletAddress: { type: String, default: "" },

@@ -4,7 +4,7 @@ import { register } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
-const ROLES = ["donor", "beneficiary", "ngo"];
+const ROLES = ["donor", "beneficiary", "ngo", "government", "agency"];
 
 export default function Register() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "donor", walletAddress: "", location: "", phone: "" });
@@ -43,8 +43,8 @@ export default function Register() {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <h1 className="text-3xl font-bold text-center text-indigo-700 mb-6">Create Account</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {field("Full Name", "name", "text", "John Doe")}
-          {field("Email", "email", "email", "you@example.com")}
+          {field("Full Name", "name", "text", "Full Name")}
+          {field("Email", "email", "email", "Email")}
           {field("Password", "password", "password", "••••••••")}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
