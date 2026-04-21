@@ -29,7 +29,7 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/disasters" element={<PrivateRoute><Disasters /></PrivateRoute>} />
-      <Route path="/disasters/new" element={<PrivateRoute roles={["admin","ngo"]}><NewDisaster /></PrivateRoute>} />
+      <Route path="/disasters/new" element={<PrivateRoute roles={["admin","ngo","government"]}><NewDisaster /></PrivateRoute>} />
       <Route path="/disasters/:id" element={<PrivateRoute><DisasterDetail /></PrivateRoute>} />
       <Route path="/admin" element={<PrivateRoute roles={["admin"]}><Admin /></PrivateRoute>} />
     </Routes>

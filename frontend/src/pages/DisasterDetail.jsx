@@ -189,15 +189,32 @@ export default function DisasterDetail() {
 
         {/* Donate */}
         {user?.role === "donor" && (
-          <Section title="Make a Donation">
-            <form onSubmit={handleDonate} style={{ display: "flex", gap: 12 }}>
-              <input type="number" step="0.001" min="0.001" placeholder="Amount in ETH"
-                value={donateAmount} onChange={(e) => setDonateAmount(e.target.value)} required className="input-field" />
-              <button disabled={loading} className="btn-primary" style={{ whiteSpace: "nowrap", padding: "12px 24px" }}>
-                {loading ? "..." : "Donate →"}
-              </button>
-            </form>
-          </Section>
+          disaster.verificationStatus === "verified" ? (
+            <Section title="Make a Donation">
+              <form onSubmit={handleDonate} style={{ display: "flex", gap: 12 }}>
+                <input type="number" step="0.001" min="0.001" placeholder="Amount in ETH"
+                  value={donateAmount} onChange={(e) => setDonateAmount(e.target.value)} required className="input-field" />
+                <button disabled={loading} className="btn-primary" style={{ whiteSpace: "nowrap", padding: "12px 24px" }}>
+                  {loading ? "..." : "Donate →"}
+                </button>
+              </form>
+            </Section>
+          ) : (
+            <div className="card-glow fade-up" style={{
+              padding: 24, marginBottom: 20,
+              borderColor: "rgba(245,158,11,0.3)",
+              background: "rgba(245,158,11,0.05)",
+            }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--warning)", letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: 8 }}>
+                {disaster.verificationStatus === "rejected" ? "Campaign rejected" : "Pending verification"}
+              </p>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.7 }}>
+                {disaster.verificationStatus === "rejected"
+                  ? "This campaign was rejected during review and cannot accept donations."
+                  : "An admin is reviewing this campaign. Donations will open once it's verified."}
+              </p>
+            </div>
+          )
         )}
 
         {/* Request Disbursement */}

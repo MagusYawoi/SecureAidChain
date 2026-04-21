@@ -8,10 +8,30 @@ const router = express.Router();
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
+function checkPasswordStrength(password) {
+  const errors = [];
+  if (typeof password !== "string") {
+    errors.push("Password is required");
+    return errors;
+  }
+  if (password.length < 8) errors.push("At least 8 characters");
+  if (!/[A-Z]/.test(password)) errors.push("At least one uppercase letter");
+  if (!/[a-z]/.test(password)) errors.push("At least one lowercase letter");
+  if (!/[0-9]/.test(password)) errors.push("At least one digit");
+  if (!/[^A-Za-z0-9]/.test(password)) errors.push("At least one special character");
+  return errors;
+}
+
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password, role, walletAddress, location, phone } = req.body;
+
+    const pwErrors = checkPasswordStrength(password);
+    if (pwErrors.length > 0) {
+      return res.status(400).json({ message: "Password does not meet requirements", errors: pwErrors });
+    }
+
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: "Email already registered" });
 

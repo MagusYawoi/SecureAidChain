@@ -9,7 +9,7 @@ export default function Disasters() {
   const [filter, setFilter] = useState({ status: "", severity: "" });
 
   useEffect(() => {
-    getDisasters(filter).then((r) => setDisasters(r.data)).catch(() => {});
+    getDisasters({ ...filter, verificationStatus: "verified" }).then((r) => setDisasters(r.data)).catch(() => {});
   }, [filter]);
 
   const severityBadge = (s) => {
@@ -42,7 +42,7 @@ export default function Disasters() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           <Link to="/dashboard" className="nav-link">Dashboard</Link>
-          {(user?.role === "admin" || user?.role === "ngo") && (
+          {["admin", "ngo", "government"].includes(user?.role) && (
             <Link to="/disasters/new" className="btn-primary" style={{ padding: "8px 16px", fontSize: 13, textDecoration: "none" }}>
               + New Campaign
             </Link>

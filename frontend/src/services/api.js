@@ -49,4 +49,8 @@ export const requestDisbursementAPI = (recipientAddress, amountEth, disasterId) 
 export const approveDisbursementAPI = (requestId) =>
   API.post("/blockchain/approve-disbursement", { requestId });
 
+// Disaster verification
+export const verifyDisaster = (id, action, note) =>
+  API.patch(`/disasters/${id}/verify`, { action, note });
+
 export default API;

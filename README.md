@@ -10,6 +10,9 @@ SecureAidChain solves corruption and mismanagement in disaster relief by putting
 
 - **Blockchain Donations** — Every ETH donation is recorded on-chain via a Solidity smart contract
 - **Multi-Signature Disbursements** — Fund releases require admin approval before execution
+- **3-Layer Campaign Authenticity** — Every campaign is enforced at creation, auto-scored by the backend, and manually approved by an admin before donations open (see [Campaign Verification Flow](#campaign-verification-flow))
+- **Strong-Password Policy** — Registration enforces 8+ chars, upper, lower, digit, and special character; Register page shows a live strength meter
+- **Duplicate Campaign Detection** — Backend flags campaigns whose titles overlap with any other created in the past 30 days
 - **IPFS Proof of Delivery** — Delivery receipts are uploaded to IPFS (via Pinata) and the hash is stored on-chain
 - **QR Code Generation** — Each disaster campaign generates a scannable QR code containing beneficiary and disaster info
 - **GPS Tracking** — Disaster locations are mapped with coordinates using Leaflet maps
@@ -71,12 +74,64 @@ SecureAidChain/
 
 ## User Roles
 
-- **Admin** — Creates disaster campaigns, verifies beneficiaries, approves disbursements, manages users
-- **Donor** — Connects MetaMask wallet, donates ETH to campaigns, generates QR codes
-- **NGO** — Requests fund disbursements for verified beneficiaries
+- **Admin** — Creates and **verifies** disaster campaigns, verifies beneficiaries, approves disbursements, manages users
+- **Donor** — Connects MetaMask wallet, donates ETH to **verified** campaigns, generates QR codes
+- **NGO** — Creates disaster campaigns, requests fund disbursements for verified beneficiaries
+- **Government** — Creates disaster campaigns for oversight and coordinated relief
 - **Beneficiary** — Receives funds, submits proof of delivery via IPFS
-- **Government** — Oversight role for monitoring campaigns
 - **Agency** — Aid agency role for managing relief operations
+
+> Campaigns created by NGO and Government roles enter the same verification queue as admin-created ones — no one can self-publish a live campaign.
+
+## Campaign Verification Flow
+
+Campaigns do not accept donations the moment they are created — they pass through three independent layers first.
+
+### Layer 1 — Creator form enforcement
+
+The New Campaign form (`NewDisaster.jsx`) live-computes an **Authenticity Score (0–100%)** as the creator types:
+
+| Requirement | Score |
+|---|---|
+| Description ≥ 50 characters | +25% |
+| GPS coordinates (lat + lng) | +25% |
+| At least one Source URL (news, govt notice, NGO report) | +25% |
+
+The form rejects submission if description is < 50 characters and visibly warns when the score is Weak (< 50%) / Moderate (50–74%) / Strong (75%+).
+
+### Layer 2 — Automatic backend checks
+
+On every `POST /api/disasters`, the backend:
+
+1. Re-runs the same 4 boolean checks (`hasGPS`, `hasDescription`, `hasSources`, `hasEvidence`) and stores the score on the document
+2. Runs **duplicate detection** — searches for any campaign in the past 30 days whose title overlaps on the first 3 words (regex-escaped to tolerate special characters). If found, the new campaign is saved with `isDuplicate: true` and `duplicateOf: <existing disasterId>`
+3. Forces `verificationStatus: "unverified"` and `status: "pending"` — regardless of what the client sent
+
+### Layer 3 — Admin approval
+
+A campaign remains invisible to donors until an admin explicitly approves it.
+
+- Admins open **Admin → Campaign Verification** tab (new in `Admin.jsx`)
+- They see every unverified campaign with full description, clickable source URLs, GPS, auto-check chips, score, and a duplicate warning if flagged
+- **Verify** → `verificationStatus: "verified"`, `status: "active"`, donations open
+- **Reject** (reason required) → `verificationStatus: "rejected"`, campaign stays in `pending` and never accepts donations
+
+The donor-facing campaigns list (`GET /api/disasters?verificationStatus=verified`) and the donate form on the detail page both filter on `verificationStatus`. Unverified and rejected campaigns are never exposed to donors, even by direct URL.
+
+### Relevant schema additions on `Disaster`
+
+- `verificationStatus: "unverified" | "pending_review" | "verified" | "rejected"`
+- `verifiedBy`, `verifiedAt`, `verifyNote`
+- `rejectedAt`, `rejectReason`
+- `sourceUrls[]`, `evidenceHashes[]`
+- `isDuplicate`, `duplicateOf`
+- `autoChecks: { hasGPS, hasEvidence, hasSources, hasDescription, checkScore }`
+
+### Relevant API endpoint
+
+- `PATCH /api/disasters/:id/verify` — admin-only; body `{ action: "verify" | "reject", note: string }`
+
+---
 
 ## Smart Contract — DisasterFund.sol
 
