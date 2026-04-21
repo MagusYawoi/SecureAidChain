@@ -13,6 +13,7 @@ SecureAidChain solves corruption and mismanagement in disaster relief by putting
 - **3-Layer Campaign Authenticity** — Every campaign is enforced at creation, auto-scored by the backend, and manually approved by an admin before donations open (see [Campaign Verification Flow](#campaign-verification-flow))
 - **Strong-Password Policy** — Registration enforces 8+ chars, upper, lower, digit, and special character; Register page shows a live strength meter
 - **Duplicate Campaign Detection** — Backend flags campaigns whose titles overlap with any other created in the past 30 days
+- **PDF Donation Receipts** — Donors download a branded, blockchain-verified receipt after any donation, and can re-download one for any past donation from the Transaction History
 - **IPFS Proof of Delivery** — Delivery receipts are uploaded to IPFS (via Pinata) and the hash is stored on-chain
 - **QR Code Generation** — Each disaster campaign generates a scannable QR code containing beneficiary and disaster info
 - **GPS Tracking** — Disaster locations are mapped with coordinates using Leaflet maps
@@ -130,6 +131,36 @@ The donor-facing campaigns list (`GET /api/disasters?verificationStatus=verified
 ### Relevant API endpoint
 
 - `PATCH /api/disasters/:id/verify` — admin-only; body `{ action: "verify" | "reject", note: string }`
+
+---
+
+## Donation Receipts
+
+After every successful donation, donors see a green confirmation card on the campaign detail page with a **Download Receipt** button. Every `donation` row in the Transaction History table also has its own **Download** button, so donors can re-download receipts for any past donation.
+
+Receipts are produced fully client-side:
+
+- The page builds a styled HTML receipt off-screen (light background with SecureAidChain brand accents — designed to print cleanly)
+- `html2canvas` snapshots the node
+- `jsPDF` embeds the snapshot into an A4 PDF
+- The browser triggers a download as `SecureAidChain-receipt-<txhash>.pdf`
+
+### What each receipt contains
+
+- Donor name + email + wallet address
+- Campaign title, location, and disaster ID
+- Amount in ETH (displayed prominently)
+- Blockchain proof block: transaction hash, block number, network (Chain ID 31337 for local Hardhat)
+- ISO timestamp of issuance
+
+The transaction hash makes the receipt independently verifiable against the Ethereum chain.
+
+### Client-side deps
+
+- `jspdf` (PDF construction)
+- `html2canvas` (HTML → canvas snapshot)
+
+Both live in `frontend/package.json`. The receipt builder lives in `frontend/src/utils/receipt.js` and is invoked from `DisasterDetail.jsx`.
 
 ---
 

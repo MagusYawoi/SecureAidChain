@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { downloadDonationReceipt } from "../utils/receipt";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const ALLOWED_LABEL = "JPG, PNG, WEBP or PDF (max 10MB)";
@@ -40,6 +41,7 @@ export default function DisasterDetail() {
   const [disbursements, setDisbursements] = useState([]);
   const [selectedDisbIndex, setSelectedDisbIndex] = useState("");
   const [beneficiaries, setBeneficiaries] = useState([]);
+  const [lastDonation, setLastDonation] = useState(null);
 
   useEffect(() => {
     getDisaster(id).then((r) => setDisaster(r.data)).catch(() => toast.error("Disaster not found"));
@@ -68,13 +70,58 @@ export default function DisasterDetail() {
     if (!walletAddr) return toast.error("Connect your wallet first");
     setLoading(true);
     try {
+      const amountSnapshot = donateAmount;
       const receipt = await donate(id, donateAmount);
       await recordTransaction({ txHash: receipt.hash, type: "donation", fromAddress: walletAddr, amount: donateAmount, disasterId: id, blockNumber: receipt.blockNumber });
       toast.success("Donation successful!");
+      setLastDonation({
+        donorName: user?.name || "Anonymous",
+        donorEmail: user?.email || "",
+        donorWallet: walletAddr,
+        disasterTitle: disaster?.title || "",
+        disasterId: disaster?.disasterId || id,
+        disasterLocation: disaster?.location || "",
+        amount: amountSnapshot,
+        txHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        network: "Hardhat Local (Chain ID 31337)",
+        timestamp: Date.now(),
+      });
       setDonateAmount("");
       getTransactions({ disasterId: id }).then((r) => setTransactions(r.data));
     } catch (err) { toast.error(err.message); }
     setLoading(false);
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (!lastDonation) return;
+    try {
+      await downloadDonationReceipt(lastDonation);
+    } catch (err) {
+      toast.error("Failed to generate receipt");
+      console.error(err);
+    }
+  };
+
+  const handleDownloadReceiptForTx = async (tx) => {
+    try {
+      await downloadDonationReceipt({
+        donorName: user?.name || "Anonymous",
+        donorEmail: user?.email || "",
+        donorWallet: tx.fromAddress,
+        disasterTitle: disaster?.title || "",
+        disasterId: disaster?.disasterId || id,
+        disasterLocation: disaster?.location || "",
+        amount: tx.amount,
+        txHash: tx.txHash,
+        blockNumber: tx.blockNumber,
+        network: "Hardhat Local (Chain ID 31337)",
+        timestamp: new Date(tx.createdAt).getTime(),
+      });
+    } catch (err) {
+      toast.error("Failed to generate receipt");
+      console.error(err);
+    }
   };
 
   const handleRequestDisbursement = async (e) => {
@@ -217,6 +264,37 @@ export default function DisasterDetail() {
           )
         )}
 
+        {/* Receipt — appears after a successful donation */}
+        {lastDonation && user?.role === "donor" && (
+          <div className="card-glow fade-up" style={{
+            padding: 24, marginBottom: 20,
+            borderColor: "rgba(16,185,129,0.3)",
+            background: "rgba(16,185,129,0.05)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 280px" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--accent3)", letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: 8 }}>
+                  ✓ Donation confirmed
+                </p>
+                <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.7, marginBottom: 8 }}>
+                  You donated <strong style={{ color: "var(--text)" }} className="mono">{lastDonation.amount} ETH</strong> to <strong style={{ color: "var(--text)" }}>{lastDonation.disasterTitle}</strong>. Download a PDF receipt for your records.
+                </p>
+                <p className="mono" style={{ fontSize: 11, color: "var(--text-dim)", wordBreak: "break-all" }}>
+                  {lastDonation.txHash}
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button onClick={handleDownloadReceipt} className="btn-primary" style={{ whiteSpace: "nowrap", padding: "12px 20px" }}>
+                  Download Receipt
+                </button>
+                <button onClick={() => setLastDonation(null)} className="btn-ghost" style={{ padding: "12px 16px", fontSize: 13 }}>
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Request Disbursement */}
         {(user?.role === "ngo" || user?.role === "admin") && (
           <Section title="Request Disbursement">
@@ -304,7 +382,7 @@ export default function DisasterDetail() {
             <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-dim)", fontSize: 13 }}>No transactions yet</div>
           ) : (
             <table className="data-table">
-              <thead><tr><th>Type</th><th>Amount</th><th>From</th><th>Date</th></tr></thead>
+              <thead><tr><th>Type</th><th>Amount</th><th>From</th><th>Date</th><th>Receipt</th></tr></thead>
               <tbody>
                 {transactions.map((tx) => (
                   <tr key={tx._id}>
@@ -319,6 +397,28 @@ export default function DisasterDetail() {
                     <td style={{ fontFamily: "'DM Mono', monospace", fontWeight: 500 }}>{tx.amount} ETH</td>
                     <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 12 }}>{tx.fromAddress?.slice(0, 10)}...</td>
                     <td>{new Date(tx.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      {tx.type === "donation" && tx.txHash ? (
+                        <button onClick={() => handleDownloadReceiptForTx(tx)}
+                          style={{
+                            background: "transparent",
+                            color: "var(--accent)",
+                            border: "1px solid rgba(0,212,255,0.25)",
+                            padding: "4px 12px",
+                            borderRadius: 20,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            letterSpacing: "0.3px",
+                          }}
+                          title="Download PDF receipt for this donation">
+                          Download
+                        </button>
+                      ) : (
+                        <span style={{ color: "var(--text-dim)", fontSize: 12 }}>—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
