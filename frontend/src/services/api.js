@@ -26,6 +26,7 @@ export const recordTransaction = (data) => API.post("/transactions", data);
 
 // Users
 export const getUsers = (params) => API.get("/users", { params });
+export const getBeneficiaries = () => API.get("/users/beneficiaries");
 export const verifyUser = (id) => API.patch(`/users/${id}/verify`);
 export const updateWallet = (id, walletAddress) => API.patch(`/users/${id}/wallet`, { walletAddress });
 

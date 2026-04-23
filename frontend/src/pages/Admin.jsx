@@ -38,9 +38,11 @@ export default function Admin() {
 
   const handleVerify = async (id) => {
     try {
-      await verifyUser(id);
+      const { data } = await verifyUser(id);
       setUsers((prev) => prev.map((u) => u._id === id ? { ...u, isVerified: true } : u));
-      toast.success("User verified");
+      if (data.chainTxHash) toast.success(`Verified — on-chain tx ${data.chainTxHash.slice(0, 10)}...`);
+      else if (data.chainError) toast.error(`DB verified but chain failed: ${data.chainError}`);
+      else toast.success("User verified");
     } catch { toast.error("Failed to verify"); }
   };
 
@@ -158,11 +160,15 @@ export default function Admin() {
                       </span>
                     </td>
                     <td>
-                      {!u.isVerified && (
+                      {!u.isVerified ? (
                         <button onClick={() => handleVerify(u._id)} className="btn-accent" style={{ padding: "6px 14px", fontSize: 12 }}>
                           Verify
                         </button>
-                      )}
+                      ) : (u.walletAddress && (u.role === "beneficiary" || u.role === "ngo")) ? (
+                        <button onClick={() => handleVerify(u._id)} className="btn-ghost" style={{ padding: "6px 14px", fontSize: 12 }} title="Re-run on-chain verification">
+                          Sync chain
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

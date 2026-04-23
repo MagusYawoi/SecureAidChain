@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getDisaster, getTransactions, recordTransaction, generateQR, uploadToIPFS, getDisbursements, confirmDeliveryAPI, requestDisbursementAPI, getUsers } from "../services/api";
+import { getDisaster, getTransactions, recordTransaction, generateQR, uploadToIPFS, getDisbursements, confirmDeliveryAPI, requestDisbursementAPI, getBeneficiaries } from "../services/api";
 import { donate, requestDisbursement, withdraw, connectWallet, getAllocatedFunds } from "../services/blockchain";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -49,9 +49,11 @@ export default function DisasterDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (user?.role === "admin") {
+    if (["admin", "ngo", "beneficiary"].includes(user?.role)) {
       getDisbursements().then((r) => setDisbursements(r.data.filter((d) => d.disasterId === id))).catch(() => {});
-      getUsers({ role: "beneficiary" }).then((r) => setBeneficiaries(r.data.filter((u) => u.walletAddress))).catch(() => {});
+    }
+    if (["admin", "ngo", "government"].includes(user?.role)) {
+      getBeneficiaries().then((r) => setBeneficiaries(r.data)).catch(() => {});
     }
   }, [id, user]);
 
@@ -296,7 +298,7 @@ export default function DisasterDetail() {
         )}
 
         {/* Request Disbursement */}
-        {(user?.role === "ngo" || user?.role === "admin") && (
+        {["admin", "ngo", "government"].includes(user?.role) && (
           <Section title="Request Disbursement">
             <form onSubmit={handleRequestDisbursement} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {beneficiaries.length > 0 ? (
@@ -321,8 +323,8 @@ export default function DisasterDetail() {
           </Section>
         )}
 
-        {/* IPFS Proof of Delivery */}
-        {user?.role === "admin" && (
+        {/* IPFS Proof of Delivery — admin/ngo can confirm any; beneficiary only their own */}
+        {["admin", "ngo", "beneficiary"].includes(user?.role) && disbursements.length > 0 && (
           <Section title="Confirm Delivery (IPFS Proof)">
             <form onSubmit={handleConfirmDelivery} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <select value={selectedDisbIndex} onChange={(e) => setSelectedDisbIndex(e.target.value)} required className="input-field">

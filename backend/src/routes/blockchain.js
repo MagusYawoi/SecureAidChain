@@ -60,7 +60,7 @@ router.post("/verify-ngo", protect, requireRole("admin"), async (req, res) => {
 });
 
 // POST /api/blockchain/request-disbursement — admin/ngo only
-router.post("/request-disbursement", protect, requireRole("admin", "ngo"), async (req, res) => {
+router.post("/request-disbursement", protect, requireRole("admin", "ngo", "government"), async (req, res) => {
   try {
     const { recipientAddress, amountEth, disasterId } = req.body;
     if (!recipientAddress || !amountEth || !disasterId)
@@ -94,22 +94,39 @@ router.get("/requests", protect, requireRole("admin"), async (req, res) => {
   }
 });
 
-// GET /api/blockchain/disbursements — admin only
-router.get("/disbursements", protect, requireRole("admin"), async (req, res) => {
+// GET /api/blockchain/disbursements — admin, ngo, or beneficiary (self only)
+router.get("/disbursements", protect, requireRole("admin", "ngo", "beneficiary"), async (req, res) => {
   try {
     const disbursements = await getDisbursements();
+    // Beneficiaries may only see their own disbursements
+    if (req.user.role === "beneficiary") {
+      const myWallet = (req.user.walletAddress || "").toLowerCase();
+      return res.json(disbursements.filter((d) => d.recipient.toLowerCase() === myWallet));
+    }
     res.json(disbursements);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// POST /api/blockchain/confirm-delivery — admin only
-router.post("/confirm-delivery", protect, requireRole("admin"), async (req, res) => {
+// POST /api/blockchain/confirm-delivery — admin, ngo, or beneficiary (only their own)
+router.post("/confirm-delivery", protect, requireRole("admin", "ngo", "beneficiary"), async (req, res) => {
   try {
     const { disbursementIndex, ipfsHash } = req.body;
     if (disbursementIndex === undefined || !ipfsHash)
       return res.status(400).json({ message: "disbursementIndex and ipfsHash required" });
+
+    // Beneficiaries may only confirm disbursements where they are the recipient
+    if (req.user.role === "beneficiary") {
+      const all = await getDisbursements();
+      const target = all[Number(disbursementIndex)];
+      if (!target) return res.status(404).json({ message: "Disbursement not found" });
+      const myWallet = (req.user.walletAddress || "").toLowerCase();
+      if (target.recipient.toLowerCase() !== myWallet) {
+        return res.status(403).json({ message: "You can only confirm delivery of your own disbursements" });
+      }
+    }
+
     const txHash = await confirmDelivery(disbursementIndex, ipfsHash);
     res.json({ txHash, ipfsHash, url: `https://gateway.pinata.cloud/ipfs/${ipfsHash}` });
   } catch (err) {

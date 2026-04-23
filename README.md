@@ -11,6 +11,8 @@ SecureAidChain solves corruption and mismanagement in disaster relief by putting
 - **Blockchain Donations** — Every ETH donation is recorded on-chain via a Solidity smart contract
 - **Multi-Signature Disbursements** — Fund releases require admin approval before execution
 - **3-Layer Campaign Authenticity** — Every campaign is enforced at creation, auto-scored by the backend, and manually approved by an admin before donations open (see [Campaign Verification Flow](#campaign-verification-flow))
+- **Distributed Delivery Confirmation** — Beneficiaries and NGOs (not just admins) can upload IPFS proof of delivery, with server-side checks so beneficiaries can only confirm their own disbursements
+- **Synced On-Chain Verification** — The admin "Verify user" button now also calls `verifyBeneficiary` or `verifyNGO` on the smart contract, keeping the database and blockchain whitelist in sync
 - **Strong-Password Policy** — Registration enforces 8+ chars, upper, lower, digit, and special character; Register page shows a live strength meter
 - **Duplicate Campaign Detection** — Backend flags campaigns whose titles overlap with any other created in the past 30 days
 - **PDF Donation Receipts** — Donors download a branded, blockchain-verified receipt after any donation, and can re-download one for any past donation from the Transaction History
@@ -75,14 +77,26 @@ SecureAidChain/
 
 ## User Roles
 
-- **Admin** — Creates and **verifies** disaster campaigns, verifies beneficiaries, approves disbursements, manages users
-- **Donor** — Connects MetaMask wallet, donates ETH to **verified** campaigns, generates QR codes
-- **NGO** — Creates disaster campaigns, requests fund disbursements for verified beneficiaries
-- **Government** — Creates disaster campaigns for oversight and coordinated relief
-- **Beneficiary** — Receives funds, submits proof of delivery via IPFS
+- **Admin** — Creates and **verifies** disaster campaigns, verifies beneficiaries + NGOs (DB + on-chain), approves disbursements, can confirm delivery on any disbursement, manages users
+- **Donor** — Connects MetaMask wallet, donates ETH to **verified** campaigns, downloads PDF donation receipts
+- **NGO** — Creates disaster campaigns, requests fund disbursements, confirms delivery on any disbursement in campaigns they coordinate
+- **Government** — Creates disaster campaigns, requests disbursements (oversight + coordination role)
+- **Beneficiary** — Withdraws allocated funds, submits IPFS delivery proof for **their own** disbursements
 - **Agency** — Aid agency role for managing relief operations
 
 > Campaigns created by NGO and Government roles enter the same verification queue as admin-created ones — no one can self-publish a live campaign.
+
+### Permissions matrix
+
+| Action | Admin | NGO | Government | Donor | Beneficiary |
+|---|---|---|---|---|---|
+| Create campaign | ✓ | ✓ | ✓ | | |
+| Verify campaign | ✓ | | | | |
+| Donate | | | | ✓ | |
+| Request disbursement | ✓ | ✓ | ✓ | | |
+| Approve disbursement | ✓ | | | | |
+| Withdraw allocated funds | | | | | ✓ (self) |
+| Confirm delivery (IPFS proof) | ✓ (any) | ✓ (any) | | | ✓ (own only) |
 
 ## Campaign Verification Flow
 
