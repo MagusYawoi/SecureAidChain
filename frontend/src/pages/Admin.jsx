@@ -88,6 +88,7 @@ export default function Admin() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <Link to="/disasters" className="nav-link">Campaigns</Link>
+          <Link to="/admin/fraud" className="nav-link" style={{ color: "#f87171" }}>🚨 Fraud Detection</Link>
           <button onClick={handleConnect} className={walletAddr ? "wallet-chip" : "btn-accent"}>
             {walletAddr ? <><span className="dot" />{walletAddr.slice(0, 6)}...{walletAddr.slice(-4)}</> : "Connect Wallet"}
           </button>

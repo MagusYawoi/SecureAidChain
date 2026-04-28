@@ -10,6 +10,7 @@ const userRoutes = require("./routes/users");
 const qrcodeRoutes = require("./routes/qrcode");
 const blockchainRoutes = require("./routes/blockchain");
 const ipfsRoutes = require("./routes/ipfs");
+const fraudRoutes = require("./routes/fraud");
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/qrcode", qrcodeRoutes);
 app.use("/api/blockchain", blockchainRoutes);
 app.use("/api/ipfs", ipfsRoutes);
+app.use("/api/fraud", fraudRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

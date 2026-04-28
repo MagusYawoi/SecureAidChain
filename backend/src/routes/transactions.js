@@ -2,6 +2,7 @@ const express = require("express");
 const Transaction = require("../models/Transaction");
 const Disaster = require("../models/Disaster");
 const { protect } = require("../middleware/auth");
+const { analyzeTransaction } = require("../utils/fraudDetector");
 
 const router = express.Router();
 
@@ -36,6 +37,13 @@ router.post("/", protect, async (req, res) => {
         { $inc: { collectedAmount: parseFloat(amount) } }
       );
     }
+
+    // Run the transaction through the fraud detector — non-blocking, errors logged
+    analyzeTransaction({ txHash, type, fromAddress, toAddress, amount, disasterId })
+      .then((alert) => {
+        if (alert) console.log(`Fraud alert raised: ${alert.riskLevel.toUpperCase()} (${alert.flags.length} flags) tx=${txHash}`);
+      })
+      .catch((err) => console.error("Fraud detector failed:", err.message));
 
     res.status(201).json(tx);
   } catch (err) {

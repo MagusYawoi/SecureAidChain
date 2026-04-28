@@ -54,4 +54,11 @@ export const approveDisbursementAPI = (requestId) =>
 export const verifyDisaster = (id, action, note) =>
   API.patch(`/disasters/${id}/verify`, { action, note });
 
+// Fraud detection
+export const getFraudAlerts = (params) => API.get("/fraud", { params });
+export const getFraudStats = () => API.get("/fraud/stats");
+export const reviewFraudAlert = (id, data) => API.patch(`/fraud/${id}/review`, data);
+export const simulateFraud = (scenario, disasterId) =>
+  API.post("/fraud/simulate", { scenario, disasterId });
+
 export default API;

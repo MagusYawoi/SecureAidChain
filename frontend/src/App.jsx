@@ -8,6 +8,7 @@ import Disasters from "./pages/Disasters";
 import DisasterDetail from "./pages/DisasterDetail";
 import NewDisaster from "./pages/NewDisaster";
 import Admin from "./pages/Admin";
+import FraudDashboard from "./pages/FraudDashboard";
 import { loadContractInfo } from "./services/blockchain";
 import { useEffect } from "react";
 
@@ -32,6 +33,7 @@ function AppRoutes() {
       <Route path="/disasters/new" element={<PrivateRoute roles={["admin","ngo","government"]}><NewDisaster /></PrivateRoute>} />
       <Route path="/disasters/:id" element={<PrivateRoute><DisasterDetail /></PrivateRoute>} />
       <Route path="/admin" element={<PrivateRoute roles={["admin"]}><Admin /></PrivateRoute>} />
+      <Route path="/admin/fraud" element={<PrivateRoute roles={["admin"]}><FraudDashboard /></PrivateRoute>} />
     </Routes>
   );
 }

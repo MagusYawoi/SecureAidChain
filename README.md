@@ -16,9 +16,10 @@ SecureAidChain solves corruption and mismanagement in disaster relief by putting
 - **Strong-Password Policy** — Registration enforces 8+ chars, upper, lower, digit, and special character; Register page shows a live strength meter
 - **Duplicate Campaign Detection** — Backend flags campaigns whose titles overlap with any other created in the past 30 days
 - **PDF Donation Receipts** — Donors download a branded, blockchain-verified receipt after any donation, and can re-download one for any past donation from the Transaction History
+- **Real-Time Fraud Detection** — Every recorded transaction is auto-scanned by a 7-rule risk-scoring engine; admins get an investigation dashboard with charts, attack-pattern attribution, and 5 simulation scenarios for demos (see [Fraud Detection System](#fraud-detection-system))
 - **IPFS Proof of Delivery** — Delivery receipts are uploaded to IPFS (via Pinata) and the hash is stored on-chain
 - **QR Code Generation** — Each disaster campaign generates a scannable QR code containing beneficiary and disaster info
-- **GPS Tracking** — Disaster locations are mapped with coordinates using Leaflet maps
+- **GPS Tracking** — Disaster locations are shown via a static OpenStreetMap image with quick-links to OSM and Google Maps for full interactive view
 - **AES-256 Encryption** — Sensitive user data (phone, location) is encrypted in MongoDB before storage
 - **Role-Based Access** — Donor, Beneficiary, NGO, Government, Agency, and Admin roles with different permissions
 - **JWT Authentication** — Secure session management with bcrypt password hashing
@@ -61,18 +62,20 @@ SecureAidChain/
 │   │   └── DisasterFund.json   # Generated after deployment
 │   └── hardhat.config.js
 ├── backend/             # Node.js/Express API
+│   ├── scripts/
+│   │   └── reset-ledger.js   # Sync MongoDB to fresh on-chain state after Hardhat restart
 │   └── src/
 │       ├── middleware/  # JWT auth middleware
-│       ├── models/      # Mongoose models (User, Disaster, Transaction)
-│       ├── routes/      # auth, disasters, transactions, users, blockchain, ipfs, qrcode
-│       ├── utils/       # contract.js (ethers), crypto.js (AES)
+│       ├── models/      # Mongoose models (User, Disaster, Transaction, FraudAlert)
+│       ├── routes/      # auth, disasters, transactions, users, blockchain, ipfs, qrcode, fraud
+│       ├── utils/       # contract.js (ethers), crypto.js (AES), fraudDetector.js
 │       └── index.js
 └── frontend/            # React app
     └── src/
         ├── context/     # AuthContext
-        ├── pages/       # Login, Register, Dashboard, Disasters, DisasterDetail, Admin, NewDisaster
+        ├── pages/       # Login, Register, Dashboard, Disasters, DisasterDetail, Admin, NewDisaster, FraudDashboard
         ├── services/    # api.js (axios), blockchain.js (ethers)
-        └── utils/
+        └── utils/       # receipt.js (PDF receipt generator)
 ```
 
 ## User Roles
@@ -175,6 +178,71 @@ The transaction hash makes the receipt independently verifiable against the Ethe
 - `html2canvas` (HTML → canvas snapshot)
 
 Both live in `frontend/package.json`. The receipt builder lives in `frontend/src/utils/receipt.js` and is invoked from `DisasterDetail.jsx`.
+
+---
+
+## Fraud Detection System
+
+Every transaction recorded in MongoDB (donation, disbursement, withdrawal) is automatically passed through a server-side analyzer ([backend/src/utils/fraudDetector.js](backend/src/utils/fraudDetector.js)). If the transaction trips one or more rules, a `FraudAlert` document is created and surfaced to admins on a dedicated dashboard at `/admin/fraud`.
+
+### 7 detection rules
+
+| # | Rule | Trigger | Score |
+|---|---|---|---|
+| 1 | Large donation | Donation > 50 ETH | +20 to +40 |
+| 2 | Rapid fire | 3+ transactions from same address in 10 minutes | +25 to +50 |
+| 3 | Round amount | Exact integer ≥ 10 ETH (10, 20, 50…) | +15 |
+| 4 | Duplicate disaster | Same address contributed to same campaign within 1 hour | +15 to +35 |
+| 5 | Zero / dust | Amount = 0, or 0 < amount ≤ 0.001 ETH | +30 |
+| 6 | Suspicious address | Self-transfer (sender == recipient) or null/burn address | +70 to +90 |
+| 7 | Large disbursement | Disbursement > 50 ETH | +45 |
+
+Cumulative score is capped at 100 and bucketed into:
+
+| Score range | Risk level |
+|---|---|
+| 0–19 | (no alert created) |
+| 20–39 | Medium |
+| 40–69 | High |
+| 70–100 | Critical |
+
+Each alert also stores: triggered flag list, transaction count from the same address, prior alert count, attack pattern (e.g. "Self-transfer / wash trading"), severity label, and a recommended admin action.
+
+### Admin dashboard
+
+`/admin/fraud` is admin-only and provides:
+
+- **Stat cards** — Total / Critical / High / Medium / Flagged / Confirmed Fraud counts
+- **Visualization panel** — Pure-SVG pie / donut / bar / horizontal-bar charts (no chart library) of alerts by risk level
+- **Attack simulator** — One-click demo buttons for 5 canned scenarios (large amount, rapid fire, self-transfer, dust attack, large disbursement) so the system can be demonstrated without staging real attacks
+- **Active rules panel** — Shows all 7 rules with thresholds and score ranges
+- **Alerts table** — Filterable by risk level + status; each row has a Review action
+- **Investigation modal** — Full alert detail: severity banner, key info grid, timeline, attacker info (with prior activity count), triggered rules, recommendation, admin review note. Action buttons: Dismiss, Mark Reviewed, Confirm Fraud
+
+### API endpoints (admin-only)
+
+- `GET /api/fraud` — list alerts (filterable by `status`, `riskLevel`)
+- `GET /api/fraud/stats` — aggregate counts for the stat cards
+- `PATCH /api/fraud/:id/review` — update an alert's status + admin note
+- `POST /api/fraud/simulate` — generate a synthetic alert for one of the 5 scenarios
+
+### What it does NOT do (yet)
+
+- It does not **block** suspicious transactions — alerts are post-facto; the on-chain transaction has already been mined. Hard blocking would require either rejecting at the API layer before the on-chain call, or adding a contract-level pause/blacklist.
+- It does not learn — rules are static thresholds. A future iteration could feed labeled alerts to a classifier.
+
+---
+
+## Maintenance scripts
+
+`backend/scripts/reset-ledger.js` — wipes the `transactions` collection and resets `collectedAmount: 0` on all disasters. Use after restarting the Hardhat node, since the on-chain state resets to zero but MongoDB still holds the old donation records, causing "Insufficient funds" errors when you try to disburse.
+
+```bash
+cd backend
+node scripts/reset-ledger.js
+```
+
+No npm install needed — uses the existing `mongoose` dependency.
 
 ---
 
