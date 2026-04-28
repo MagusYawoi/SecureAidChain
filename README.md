@@ -19,7 +19,7 @@ SecureAidChain solves corruption and mismanagement in disaster relief by putting
 - **Real-Time Fraud Detection** — Every recorded transaction is auto-scanned by a 7-rule risk-scoring engine; admins get an investigation dashboard with charts, attack-pattern attribution, and 5 simulation scenarios for demos (see [Fraud Detection System](#fraud-detection-system))
 - **IPFS Proof of Delivery** — Delivery receipts are uploaded to IPFS (via Pinata) and the hash is stored on-chain
 - **QR Code Generation** — Each disaster campaign generates a scannable QR code containing beneficiary and disaster info
-- **GPS Tracking** — Disaster locations are shown via a static OpenStreetMap image with quick-links to OSM and Google Maps for full interactive view
+- **GPS Tracking** — Disaster locations are shown via an embedded Google Maps iframe (no API key required) with a quick-link to open the location in a new tab
 - **AES-256 Encryption** — Sensitive user data (phone, location) is encrypted in MongoDB before storage
 - **Role-Based Access** — Donor, Beneficiary, NGO, Government, Agency, and Admin roles with different permissions
 - **JWT Authentication** — Secure session management with bcrypt password hashing
@@ -243,6 +243,27 @@ node scripts/reset-ledger.js
 ```
 
 No npm install needed — uses the existing `mongoose` dependency.
+
+---
+
+## Frontend dev-server CSP
+
+The Vite dev server in [frontend/vite.config.js](frontend/vite.config.js) sends a Content-Security-Policy header that locks down which external origins the app may talk to. The current allowlist:
+
+| Directive | Allowed sources | Why |
+|---|---|---|
+| `default-src` | `'self'` | Catch-all stays tight |
+| `script-src` | `'self' 'unsafe-eval' 'unsafe-inline'` | Required by Vite/React HMR |
+| `style-src` | `'self' 'unsafe-inline'` | Inline styles + Tailwind |
+| `img-src` | `'self' data: blob: https:` | Map tiles, Pinata gateway, IPFS proofs |
+| `connect-src` | `'self' http://127.0.0.1:8545 https:` | Hardhat JSON-RPC + outbound APIs |
+| `frame-src` | `'self' https://www.openstreetmap.org https://maps.google.com https://www.google.com` | Embedded Google Maps for GPS Location |
+
+Without these directives, embedded map iframes are blocked with `ERR_BLOCKED_BY_CSP`. If you add a new tile or iframe provider (Mapbox, Stadia, etc.), extend the appropriate directive.
+
+## Typography
+
+The site uses the OS native UI font stack (`-apple-system, Segoe UI, Roboto, Helvetica Neue, ...`). The `Syne` Google Font import was previously included but has been disabled in [src/index.css](frontend/src/index.css) to keep the CSP simple and avoid an external font fetch. Numeric and address fields use a `'DM Mono', monospace` rule that falls through cleanly to the OS monospace font (Menlo / Consolas / Liberation Mono).
 
 ---
 

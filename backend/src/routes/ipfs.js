@@ -8,7 +8,7 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // POST /api/ipfs/upload — admin only, upload proof document to IPFS via Pinata
-router.post("/upload", protect, requireRole("admin", "ngo"), upload.single("file"), async (req, res) => {
+router.post("/upload", protect, requireRole("admin", "ngo", "beneficiary"), upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file provided" });
 

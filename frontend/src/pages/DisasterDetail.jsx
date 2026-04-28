@@ -4,8 +4,6 @@ import { getDisaster, getTransactions, recordTransaction, generateQR, uploadToIP
 import { donate, requestDisbursement, withdraw, connectWallet, getAllocatedFunds } from "../services/blockchain";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 import { downloadDonationReceipt } from "../utils/receipt";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -224,15 +222,32 @@ export default function DisasterDetail() {
           <div style={{ marginTop: 6, fontSize: 11, color: "var(--text-dim)", textAlign: "right" }}>{pct.toFixed(1)}% funded</div>
         </div>
 
-        {/* GPS Map */}
-        {disaster.gpsCoordinates?.lat && (
+        {/* GPS Map — Google Maps embed iframe (no API key required) */}
+        {disaster.gpsCoordinates?.lat && disaster.gpsCoordinates?.lng && (
           <Section title="GPS Location">
-            <MapContainer center={[disaster.gpsCoordinates.lat, disaster.gpsCoordinates.lng]} zoom={10} style={{ height: "250px", borderRadius: "var(--radius)" }}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[disaster.gpsCoordinates.lat, disaster.gpsCoordinates.lng]}>
-                <Popup>{disaster.title}</Popup>
-              </Marker>
-            </MapContainer>
+            <div style={{ position: "relative", borderRadius: "var(--radius)", overflow: "hidden", border: "1px solid var(--border)" }}>
+              <iframe
+                title={`Map of ${disaster.title}`}
+                src={`https://maps.google.com/maps?q=${disaster.gpsCoordinates.lat},${disaster.gpsCoordinates.lng}&z=12&output=embed`}
+                style={{ width: "100%", height: 320, border: 0, display: "block" }}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, fontSize: 12, color: "var(--text-muted)", flexWrap: "wrap", gap: 8 }}>
+              <span className="mono">
+                {Number(disaster.gpsCoordinates.lat).toFixed(4)}, {Number(disaster.gpsCoordinates.lng).toFixed(4)}
+              </span>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${disaster.gpsCoordinates.lat},${disaster.gpsCoordinates.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "var(--accent)", fontSize: 12, fontWeight: 600, textDecoration: "none" }}
+              >
+                Open in Google Maps →
+              </a>
+            </div>
           </Section>
         )}
 
